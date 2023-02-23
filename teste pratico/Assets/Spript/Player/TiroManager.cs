@@ -11,6 +11,7 @@ public class TiroManager : MonoBehaviour
     public bool           _destoy;
     public float          _SpeedDestroyAuto;
     public int            _eixoX, _eixoY;
+    public bool           _tiroInimigo;
 
     void Start()
     {
@@ -32,10 +33,17 @@ public class TiroManager : MonoBehaviour
         Vector2 temp = new Vector2(_eixoX, _eixoY);
         transform.Translate((temp * Time.deltaTime * _SpeedTiro));        
     }
-
-    private void OnCollisionEnter2D(Collision2D collision)
-    {        
-        _anim.SetBool("explosao", collision.collider.tag.Equals("Parede") || collision.collider.tag.Equals("Enemy"));              
-        _SpeedTiro = 0;        
+    
+    private void OnTriggerEnter2D(Collider2D collision)
+    {
+        if (_tiroInimigo)
+        {
+            _anim.SetBool("explosao", collision.gameObject.tag == "Parede" || collision.gameObject.tag == "Player");
+        }
+        else
+        {
+            _anim.SetBool("explosao", collision.gameObject.tag == "Parede" || collision.gameObject.tag == "Enemy");
+        }
+        _SpeedTiro = 0;
     }
 }

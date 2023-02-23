@@ -16,6 +16,10 @@ PrefabInstance:
       propertyPath: _eixoY
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 2669975264357757215, guid: d18a60c6414324e40adad7236598aea0, type: 3}
+      propertyPath: m_IsTrigger
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 6061259152815475689, guid: d18a60c6414324e40adad7236598aea0, type: 3}
       propertyPath: m_Name
       value: TiroLateral Variant

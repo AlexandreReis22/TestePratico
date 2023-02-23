@@ -19,6 +19,10 @@ public class PlayerInput : MonoBehaviour
         if (Input.GetButtonDown("Fire1"))
         {
             pManager.TiroSpawn();
+            if (!ManagerGame._iniciou)
+            {
+                ManagerGame._iniciou = true;
+            }
         } 
         else if (Input.GetButtonDown("Fire2"))
         {

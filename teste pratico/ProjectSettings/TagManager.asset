@@ -6,11 +6,16 @@ TagManager:
   tags:
   - Parede
   - Limite
+  - StarRotate2
+  - StarRotate1
+  - TiroInimigo
+  - Tiro
+  - Enemy
   layers:
   - Default
   - TransparentFX
   - Ignore Raycast
-  - 
+  - misc
   - Water
   - UI
   - Tiro
@@ -18,8 +23,8 @@ TagManager:
   - Cenario
   - limite
   - Player
-  - 
-  - 
+  - TiroInimigo
+  - Inimigo
   - 
   - 
   - 
