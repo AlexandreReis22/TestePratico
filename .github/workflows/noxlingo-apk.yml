@@ -32,12 +32,15 @@ jobs:
           echo "ANDROID_HOME=$ANDROID_HOME"
           test -d "$ANDROID_HOME"
           ls "$ANDROID_HOME/platforms" || true
+      - name: Validar scripts e conteúdo da atualização
+        run: |
+          node -e "const fs=require('fs');const h=fs.readFileSync('www/index.html','utf8');const scripts=[...h.matchAll(/<script>([\\s\\S]*?)<\\/script>/g)];if(scripts.length!==2)throw Error('scripts ausentes');for(const m of scripts)new Function(m[1]);for(const t of ['AVALIADOR_V2_INICIO','30 aulas','function evaluateAnswer'])if(!h.includes(t))throw Error('conteudo ausente: '+t);console.log('NoxLingo v0.2 OK')"
       - name: Preparar wrapper Android
         run: |
           cat > package.json <<'EOF'
           {
             "name": "noxlingo-android",
-            "version": "0.1.0",
+            "version": "0.2.0",
             "private": true,
             "dependencies": {
               "@capacitor/android": "^7.0.0",
@@ -61,6 +64,9 @@ jobs:
           npm install --no-audit --no-fund
           npx cap add android
           npx cap sync android
+      - name: Atualizar versão interna Android
+        run: |
+          node -e "const fs=require('fs');const p='android/app/build.gradle';let s=fs.readFileSync(p,'utf8');if(!/versionCode\\s+\\d+/.test(s))throw Error('versionCode ausente');s=s.replace(/versionCode\\s+\\d+/,'versionCode 2').replace(/versionName\\s+[\x22\x27][^\x22\x27]+[\x22\x27]/,'versionName \\"0.2.0\\"');fs.writeFileSync(p,s);"
       - name: Compilar APK debug
         run: |
           cd android
@@ -69,7 +75,7 @@ jobs:
       - name: Guardar APK para download
         uses: actions/upload-artifact@v4
         with:
-          name: NoxLingo-Android-APK
+          name: NoxLingo-v0.2-APK
           path: noxlingo-android/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
