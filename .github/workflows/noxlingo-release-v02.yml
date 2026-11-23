@@ -1,0 +1,84 @@
+name: NoxLingo v0.2 — pacote para assinatura local
+on:
+  push:
+    branches:
+      - noxlingo-android-build
+    paths:
+      - '.github/workflows/noxlingo-release-v02.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  prepare-release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: noxlingo-android
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Usar Android SDK preinstalado
+        run: test -d "$ANDROID_HOME"
+      - name: Criar app isolado para instalação paralela
+        run: |
+          cat > package.json <<'EOF'
+          {
+            "name": "noxlingo-android",
+            "version": "0.2.0",
+            "private": true,
+            "dependencies": {
+              "@capacitor/android": "^7.0.0",
+              "@capacitor/core": "^7.0.0"
+            },
+            "devDependencies": {
+              "@capacitor/cli": "^7.0.0"
+            }
+          }
+          EOF
+          cat > capacitor.config.json <<'EOF'
+          {
+            "appId": "app.noxlingo.mobile.v2",
+            "appName": "NoxLingo v0.2",
+            "webDir": "www",
+            "android": {
+              "backgroundColor": "#090f1c"
+            }
+          }
+          EOF
+          npm install --no-audit --no-fund
+          npx cap add android
+          npx cap sync android
+      - name: Ajustar versionCode
+        run: |
+          sed -i -E 's/versionCode[[:space:]]+[0-9]+/versionCode 2/' android/app/build.gradle
+          sed -i -E "s/versionName[[:space:]]+.*$/versionName '0.2.0'/" android/app/build.gradle
+      - name: Compilar APK de release sem chave
+        run: |
+          cd android
+          chmod +x ./gradlew
+          ./gradlew assembleRelease --no-daemon --stacktrace
+      - name: Disponibilizar APK e ferramenta de assinatura
+        run: |
+          find "$ANDROID_HOME/build-tools" -path '*/lib/apksigner.jar' | sort -V | tail -1
+          SIGNER="$(find "$ANDROID_HOME/build-tools" -path '*/lib/apksigner.jar' | sort -V | tail -1)"
+          test -f "$SIGNER"
+          cp "$SIGNER" ./apksigner.jar
+          ls -lah android/app/build/outputs/apk/release/ apksigner.jar
+      - name: Exportar artefato para assinatura privada
+        uses: actions/upload-artifact@v4
+        with:
+          name: NoxLingo-v0.2-unsigned-signing
+          path: |
+            noxlingo-android/android/app/build/outputs/apk/release/app-release-unsigned.apk
+            noxlingo-android/apksigner.jar
+          if-no-files-found: error
+          retention-days: 30
