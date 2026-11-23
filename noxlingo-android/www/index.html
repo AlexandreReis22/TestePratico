@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0b1120">
-  <meta name="description" content="NoxLingo v0.3 — espanhol latino em aulas curtas, respostas rápidas e revisões inteligentes, sem internet.">
+  <meta name="description" content="NoxLingo v0.3.1 — espanhol latino em aulas curtas, respostas rápidas e revisões inteligentes, sem internet.">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -1884,11 +1884,25 @@ const DIALOGUES = [
   const AUDIO_SPEEDS=[0.70,0.85,1.00,1.15];
   function getAudioSpeed(){let value=Number(localStorage.getItem(AUDIO_PREF_KEY)||'0.85');return AUDIO_SPEEDS.includes(value)?value:0.85;}
   function saveAudioSpeed(speed){const value=Number(speed);if(!AUDIO_SPEEDS.includes(value))return;localStorage.setItem(AUDIO_PREF_KEY,String(value));showToast('Velocidade da voz atualizada.');}
+  // Capacitor 7 injeta uma ponte nativa com nativePromise(), mas nem sempre
+  // expoe registerPlugin() no objeto window.Capacitor (nao usar esse teste).
   let nativeTts=null;
   function getNativeTts(){
     const cap=window.Capacitor;
-    if(!cap||typeof cap.registerPlugin!=='function'||cap.getPlatform?.()!=='android')return null;
-    if(!nativeTts)nativeTts=cap.registerPlugin('NoxTts');
+    if(!cap)return null;
+    if(cap.getPlatform?.()!=='android' && !window.androidBridge)return null;
+    if(nativeTts)return nativeTts;
+    if(typeof cap.nativePromise==='function'){
+      nativeTts={
+        speak:options=>cap.nativePromise('NoxTts','speak',options),
+        stop:()=>cap.nativePromise('NoxTts','stop',{}),
+        status:()=>cap.nativePromise('NoxTts','status',{})
+      };
+    }else if(cap.Plugins?.NoxTts?.speak){
+      nativeTts=cap.Plugins.NoxTts;
+    }else if(typeof cap.registerPlugin==='function'){
+      nativeTts=cap.registerPlugin('NoxTts');
+    }
     return nativeTts;
   }
   function selectBrowserVoice(){
@@ -1906,12 +1920,12 @@ const DIALOGUES = [
       catch(err){
         const hint=err?.code==='SPANISH_VOICE_MISSING'
           ?'Para ouvir offline, instale uma voz em espanhol nas configurações de texto para fala do Android.'
-          :'Áudio indisponível. Confira o mecanismo de texto para fala do Android.';
+          :'Não consegui iniciar a voz do Android. Verifique a voz instalada em Configurações → Texto para fala.';
         showToast(hint);
       }
       return;
     }
-    if(!('speechSynthesis' in window)){showToast('Este navegador não oferece leitura de voz.');return;}
+    if(!('speechSynthesis' in window)){showToast('Áudio indisponível neste ambiente. No Android, confira a instalação do NoxLingo atualizado e a voz espanhola do aparelho.');return;}
     try{
       window.speechSynthesis.cancel();
       const utterance=new SpeechSynthesisUtterance(String(text));
@@ -1936,7 +1950,7 @@ const DIALOGUES = [
     return `<div class="panel audio-panel"><div class="section-head"><div><h3>Pronúncia em espanhol</h3><p>Áudio gerado pela voz instalada no celular, sem arquivos externos. Voz latino-americana quando disponível.</p></div></div><label class="answer-label" for="voice-speed">Velocidade da fala</label><select id="voice-speed" class="search-field" aria-label="Velocidade do áudio">${AUDIO_SPEEDS.map(v=>`<option value="${v}" ${getAudioSpeed()===v?'selected':''}>${v===0.70?'Bem devagar':v===0.85?'Devagar':v===1?'Normal':'Mais rápido'} · ${v}×</option>`).join('')}</select><div class="voice-actions">${btn(icon('speaker')+' Testar voz','voice-test','btn-secondary')}${btn('Parar áudio','voice-stop','btn-outline')}</div><p class="muted small">Se não sair som: instale uma voz offline em espanhol nas configurações de síntese de voz do Android. A pronúncia depende da voz disponível no aparelho.</p></div>`;
   }
   function doExport(){const data=JSON.stringify({app:'NoxLingo',exportedAt:new Date().toISOString(),data:store},null,2);const blob=new Blob([data],{type:'application/json'});const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download=`NoxLingo_Backup_${dayKey(Date.now())}.json`;document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);showToast('Backup preparado para download.');}
-  function exportDiagnostics(){let logs=[];try{logs=JSON.parse(localStorage.getItem(ERROR_KEY)||'[]');}catch{}const blob=new Blob([JSON.stringify({app:'NoxLingo',version:'0.3',errors:logs},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='NoxLingo_Diagnostico.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);showToast('Diagnóstico preparado para download.');}
+  function exportDiagnostics(){let logs=[];try{logs=JSON.parse(localStorage.getItem(ERROR_KEY)||'[]');}catch{}const blob=new Blob([JSON.stringify({app:'NoxLingo',version:'0.3.1',errors:logs},null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='NoxLingo_Diagnostico.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);showToast('Diagnóstico preparado para download.');}
   function doReset(){if(!confirm('Apagar TODO o progresso e os favoritos deste aparelho? Esta ação não pode ser desfeita sem um backup.'))return;store=DEFAULT_DATA();save();setView('home');showToast('Progresso local apagado.');}
   async function importBackup(file){if(!file)return;try{if(file.size>5_000_000)throw new Error('Backup muito grande.');const obj=JSON.parse(await file.text());if(obj.app!=='NoxLingo'||!obj.data||obj.data.version!==1||!Array.isArray(obj.data.history)||!Array.isArray(obj.data.favorites)||typeof obj.data.completed!=='object'||obj.data.completed===null||typeof obj.data.mistakes!=='object'||obj.data.mistakes===null||typeof obj.data.stats!=='object'||obj.data.stats===null)throw new Error('Arquivo inválido ou incompatível.');if(!confirm('Substituir o progresso atual pelo progresso do backup selecionado?'))return;const source=obj.data;store={...DEFAULT_DATA(),...source,version:1,stats:{...DEFAULT_DATA().stats,...source.stats},favorites:source.favorites.filter(x=>typeof x==='string'),history:source.history.slice(0,500),sessions:Array.isArray(source.sessions)?source.sessions.slice(0,100):[],words:source.words&&typeof source.words==='object'&&!Array.isArray(source.words)?source.words:{}};save();setView('home');showToast('Backup restaurado.');}catch(e){showToast('Falha na importação: '+e.message);}finally{$('#backup-file').value='';}}
   function handleAction(action){if(action.startsWith('listen-lesson-')){listenLessonExample(Number(action.slice('listen-lesson-'.length)));return;}if(action.startsWith('lesson-')){startLesson(Number(action.split('-')[1]));return;}switch(action){case'quick':startQuick();break;case'dialogue':startDialogue();break;case'review':startReview();break;case'check':checkAnswer();break;case'override':overrideAnswer();break;case'next':nextQuestion();break;case'quit':if(confirm('Sair do treino? As respostas já feitas ficam salvas, mas a aula não será marcada como concluída.')){quiz=null;setView('home');}break;case'voice-test':speak('Hola, ¿cómo estás? Me alegra hablar contigo.');break;case'voice-stop':stopVoice();break;case'listen-dialogue':listenDialogueQuestion();break;case'speak-answer':if(quiz)speak(quiz.last?.matched||quiz.items[quiz.position].answers[0]);break;case'export':doExport();break;case'diagnostics':exportDiagnostics();break;case'import':$('#backup-file').click();break;case'reset':doReset();break;case'goto-lessons':setView('lessons');break;case'goto-home':setView('home');break;case'goto-review':setView('review');break;}}
