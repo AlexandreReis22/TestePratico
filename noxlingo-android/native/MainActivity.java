@@ -8,6 +8,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(NoxTtsPlugin.class);
         registerPlugin(NoxSpeechPlugin.class);
+        registerPlugin(NoxReminderPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
