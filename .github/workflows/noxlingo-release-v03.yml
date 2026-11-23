@@ -1,4 +1,4 @@
-name: NoxLingo v0.3 — áudio Android nativo
+name: NoxLingo v0.3.1 — conserto de áudio Android
 on:
   push:
     branches:
@@ -48,7 +48,7 @@ jobs:
           cat > package.json <<'EOF'
           {
             "name": "noxlingo-android",
-            "version": "0.3.0",
+            "version": "0.3.1",
             "private": true,
             "dependencies": {
               "@capacitor/android": "^7.0.0",
@@ -85,10 +85,10 @@ jobs:
               s=s.replace('<application',t+'\n    <application',1)
           p.write_text(s,'utf-8')
           PY
-      - name: Atualizar versão 3
+      - name: Atualizar versão 4
         run: |
-          sed -i -E 's/versionCode[[:space:]]+[0-9]+/versionCode 3/' android/app/build.gradle
-          sed -i -E "s/versionName[[:space:]]+.*$/versionName '0.3.0'/" android/app/build.gradle
+          sed -i -E 's/versionCode[[:space:]]+[0-9]+/versionCode 4/' android/app/build.gradle
+          sed -i -E "s/versionName[[:space:]]+.*$/versionName '0.3.1'/" android/app/build.gradle
           grep -E 'applicationId|versionCode|versionName' android/app/build.gradle
       - name: Compilar APK para assinatura privada
         run: |
@@ -98,7 +98,7 @@ jobs:
       - name: Exportar APK não assinado
         uses: actions/upload-artifact@v4
         with:
-          name: NoxLingo-v0.3-unsigned
+          name: NoxLingo-v0.3.1-unsigned
           path: noxlingo-android/android/app/build/outputs/apk/release/app-release-unsigned.apk
           if-no-files-found: error
           retention-days: 30
