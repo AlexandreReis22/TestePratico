@@ -1,4 +1,4 @@
-name: NoxLingo v0.3.1 — conserto de áudio Android
+name: NoxLingo v0.4 — treino de respostas por voz
 on:
   push:
     branches:
@@ -38,17 +38,17 @@ jobs:
           const scripts = [...h.matchAll(/<script>([\s\S]*?)<\/script>/g)];
           if (scripts.length !== 2) throw Error('Esperados 2 blocos de script.');
           for (const script of scripts) new Function(script[1]);
-          for (const term of ['function voiceControls', "registerPlugin('NoxTts')", 'function checkAnswer()']) {
+          for (const term of ['function voiceControls', "cap.nativePromise('NoxSpeech','start'", 'function startSpeechSession()', 'function checkAnswer()']) {
             if (!h.includes(term)) throw Error('Recurso ausente: '+term);
           }
-          console.log('HTML e scripts v0.3 validados.');
+          console.log('HTML e scripts v0.4 validados.');
           NODE
       - name: Preparar Capacitor 7
         run: |
           cat > package.json <<'EOF'
           {
             "name": "noxlingo-android",
-            "version": "0.3.1",
+            "version": "0.4.0",
             "private": true,
             "dependencies": {
               "@capacitor/android": "^7.0.0",
@@ -72,23 +72,23 @@ jobs:
           npm install --no-audit --no-fund
           npx cap add android
           npx cap sync android
-      - name: Registrar sintetizador Android nativo
+      - name: Registrar sintetizador e reconhecimento nativos
         run: |
           mkdir -p android/app/src/main/java/app/noxlingo/mobile/v2
-          cp native/MainActivity.java native/NoxTtsPlugin.java android/app/src/main/java/app/noxlingo/mobile/v2/
+          cp native/MainActivity.java native/NoxTtsPlugin.java native/NoxSpeechPlugin.java android/app/src/main/java/app/noxlingo/mobile/v2/
           python3 - <<'PY'
           from pathlib import Path
           p=Path('android/app/src/main/AndroidManifest.xml')
           s=p.read_text('utf-8')
-          t='<queries><intent><action android:name="android.intent.action.TTS_SERVICE" /></intent></queries>'
-          if t not in s:
+          t='<uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <queries><intent><action android:name="android.intent.action.TTS_SERVICE" /></intent><intent><action android:name="android.speech.RecognitionService" /></intent></queries>'
+          if 'android.permission.RECORD_AUDIO' not in s:
               s=s.replace('<application',t+'\n    <application',1)
           p.write_text(s,'utf-8')
           PY
-      - name: Atualizar versão 4
+      - name: Atualizar versão 5
         run: |
-          sed -i -E 's/versionCode[[:space:]]+[0-9]+/versionCode 4/' android/app/build.gradle
-          sed -i -E "s/versionName[[:space:]]+.*$/versionName '0.3.1'/" android/app/build.gradle
+          sed -i -E 's/versionCode[[:space:]]+[0-9]+/versionCode 5/' android/app/build.gradle
+          sed -i -E "s/versionName[[:space:]]+.*$/versionName '0.4.0'/" android/app/build.gradle
           grep -E 'applicationId|versionCode|versionName' android/app/build.gradle
       - name: Compilar APK para assinatura privada
         run: |
@@ -98,7 +98,7 @@ jobs:
       - name: Exportar APK não assinado
         uses: actions/upload-artifact@v4
         with:
-          name: NoxLingo-v0.3.1-unsigned
+          name: NoxLingo-v0.4-unsigned
           path: noxlingo-android/android/app/build/outputs/apk/release/app-release-unsigned.apk
           if-no-files-found: error
           retention-days: 30
