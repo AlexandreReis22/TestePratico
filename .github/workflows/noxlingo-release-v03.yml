@@ -1,0 +1,104 @@
+name: NoxLingo v0.3 — áudio Android nativo
+on:
+  push:
+    branches:
+      - noxlingo-android-build
+    paths:
+      - 'noxlingo-android/native/**'
+      - 'noxlingo-android/www/**'
+      - '.github/workflows/noxlingo-release-v03.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: noxlingo-android
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Android SDK preinstalado
+        run: test -d "$ANDROID_HOME"
+      - name: Validar JavaScript offline
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const h = fs.readFileSync('www/index.html', 'utf8');
+          const scripts = [...h.matchAll(/<script>([\s\S]*?)<\/script>/g)];
+          if (scripts.length !== 2) throw Error('Esperados 2 blocos de script.');
+          for (const script of scripts) new Function(script[1]);
+          for (const term of ['function voiceControls', "registerPlugin('NoxTts')", 'function checkAnswer()']) {
+            if (!h.includes(term)) throw Error('Recurso ausente: '+term);
+          }
+          console.log('HTML e scripts v0.3 validados.');
+          NODE
+      - name: Preparar Capacitor 7
+        run: |
+          cat > package.json <<'EOF'
+          {
+            "name": "noxlingo-android",
+            "version": "0.3.0",
+            "private": true,
+            "dependencies": {
+              "@capacitor/android": "^7.0.0",
+              "@capacitor/core": "^7.0.0"
+            },
+            "devDependencies": {
+              "@capacitor/cli": "^7.0.0"
+            }
+          }
+          EOF
+          cat > capacitor.config.json <<'EOF'
+          {
+            "appId": "app.noxlingo.mobile.v2",
+            "appName": "NoxLingo",
+            "webDir": "www",
+            "android": {
+              "backgroundColor": "#090f1c"
+            }
+          }
+          EOF
+          npm install --no-audit --no-fund
+          npx cap add android
+          npx cap sync android
+      - name: Registrar sintetizador Android nativo
+        run: |
+          mkdir -p android/app/src/main/java/app/noxlingo/mobile/v2
+          cp native/MainActivity.java native/NoxTtsPlugin.java android/app/src/main/java/app/noxlingo/mobile/v2/
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('android/app/src/main/AndroidManifest.xml')
+          s=p.read_text('utf-8')
+          t='<queries><intent><action android:name="android.intent.action.TTS_SERVICE" /></intent></queries>'
+          if t not in s:
+              s=s.replace('<application',t+'\n    <application',1)
+          p.write_text(s,'utf-8')
+          PY
+      - name: Atualizar versão 3
+        run: |
+          sed -i -E 's/versionCode[[:space:]]+[0-9]+/versionCode 3/' android/app/build.gradle
+          sed -i -E "s/versionName[[:space:]]+.*$/versionName '0.3.0'/" android/app/build.gradle
+          grep -E 'applicationId|versionCode|versionName' android/app/build.gradle
+      - name: Compilar APK para assinatura privada
+        run: |
+          cd android
+          chmod +x ./gradlew
+          ./gradlew assembleRelease --no-daemon --stacktrace
+      - name: Exportar APK não assinado
+        uses: actions/upload-artifact@v4
+        with:
+          name: NoxLingo-v0.3-unsigned
+          path: noxlingo-android/android/app/build/outputs/apk/release/app-release-unsigned.apk
+          if-no-files-found: error
+          retention-days: 30
